@@ -1,0 +1,26 @@
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: #f4f6f0;
+}
+.heading-font {
+    font-family: 'Comfortaa', cursive;
+}
+.glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.05);
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(45, 90, 58, 0.3);
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(45, 90, 58, 0.5);
+}
