@@ -158,6 +158,50 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDmR1Uzt6kNnFWY9ocS0uzqqih9mj1A79Y",
+        authDomain: "zoopass-65376.firebaseapp.com",
+        projectId: "zoopass-65376",
+        storageBucket: "zoopass-65376.firebasestorage.app",
+        messagingSenderId: "309287697446",
+        appId: "1:309287697446:web:0f937fb94c3aadc414fae7",
+        measurementId: "G-P3ER22DEWN"
+    };
+
+    // Inicializálás
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Globálissá tesszük a modulokat
+    window.db = db;
+    window.doc = doc;
+    window.setDoc = setDoc;
+    window.getDoc = getDoc;
+    window.updateDoc = updateDoc;
+    window.increment = increment;
+
+    // Névtelen Bejelentkezés
+    signInAnonymously(auth)
+        .then(() => console.log("Firebase Auth elindítva..."))
+        .catch((error) => console.error("Firebase Auth Hiba:", error));
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            console.log("Sikeres névtelen belépés! User UID:", user.uid);
+            window.currentUserUid = user.uid;
+            
+            if (typeof window.loadUserDataFromCloud === 'function') {
+                window.loadUserDataFromCloud(user.uid);
+            }
+        }
+    });
+    </script>
     <script src="script.js"></script>
-  </body>
+    </body>
 </html>

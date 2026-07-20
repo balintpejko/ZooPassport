@@ -214,6 +214,7 @@ function renderActivePage() {
 }
 
 // Állapot frissítése és mentése
+// Állapot frissítése és mentése (Local + Cloud)
 function updateProgress(itemId, value) {
     userProgress[itemId] = value;
     localStorage.setItem('zoo_passport_progress', JSON.stringify(userProgress));
@@ -224,8 +225,28 @@ function updateProgress(itemId, value) {
     const progress = calculateRegionProgress(region);
 
     updateGlobalProgressDOM();
-}
 
+    // --- FELHŐBE MENTÉS & XP KISZÁMÍTÁSA ---
+    let totalXp = 0;
+    
+    // Pontszámítás: checkbox/szöveg = 50 XP, fotó = 150 XP
+    zooData.regions.forEach(r => {
+        r.items.forEach(item => {
+            const val = userProgress[item.id];
+            if (item.type === 'checkbox' && val === true) totalXp += 50;
+            if (item.type === 'text' && val && val.trim().length > 3) totalXp += 50;
+            if (item.type === 'photo' && val && val.startsWith('data:image')) totalXp += 150;
+        });
+    });
+
+    // Badge szint meghatározása XP alapján
+    let badge = 'Bronze';
+    if (totalXp >= 300) badge = 'Silver';
+    if (totalXp >= 600) badge = 'Gold';
+
+    // Mentés a Firebase-be
+    saveUserDataToCloud(zooData.id, totalXp, badge);
+}
 async function handlePhotoUpload(itemId, input) {
     if (input.files && input.files[0]) {
         const file = input.files[0];
@@ -335,4 +356,62 @@ if ('serviceWorker' in navigator) {
             .then((reg) => console.log('Service Worker sikeresen regisztrálva! Működési hatókör:', reg.scope))
             .catch((err) => console.error('Service Worker regisztrációs hiba:', err));
     });
+}
+
+// Betöltés a felhőből (ha van mentett adat)
+window.loadUserDataFromCloud = async function(uid) {
+    if (!window.db || !window.getDoc || !window.doc) return;
+    
+    try {
+        const userRef = window.doc(window.db, "users", uid);
+        const docSnap = await window.getDoc(userRef);
+
+        if (docSnap.exists()) {
+            console.log("Felhőbeli adatok megtalálva:", docSnap.data());
+            // Később ide köthetjük a felhőbeli haladás szinkronizálását!
+        } else {
+            console.log("Új felhasználó, még nincsenek felhőbeli adatai.");
+        }
+    } catch (err) {
+        console.error("Hiba a felhőbeli adatok betöltésekor:", err);
+    }
+};
+
+// 1. Felhasználói adatok (XP, Badge-ek) mentése a felhőbe
+async function saveUserDataToCloud(zooId, newXp, badgeLevel) {
+    if (!window.currentUserUid || !window.db) {
+        console.warn("Firebase még nem áll készen a mentésre.");
+        return;
+    }
+
+    try {
+        const userRef = window.doc(window.db, "users", window.currentUserUid);
+        await window.setDoc(userRef, {
+            [`stats.${zooId}`]: {
+                xp: newXp,
+                badge: badgeLevel,
+                lastVisit: new Date().toISOString()
+            }
+        }, { merge: true });
+
+        console.log("Adatok sikeresen elmentve a felhőbe!");
+    } catch (err) {
+        console.error("Hiba a felhőbe mentés során:", err);
+    }
+}
+
+// 2. Globális népszerűségi számláló
+async function registerGlobalVisit(zooId) {
+    if (!window.db) return;
+
+    try {
+        const globalRef = window.doc(window.db, "globalStats", zooId);
+        await window.setDoc(globalRef, {
+            totalVisits: window.increment(1)
+        }, { merge: true });
+
+        console.log(`Globális látogatás regisztrálva a(z) ${zooId} helyszínhez!`);
+    } catch (err) {
+        console.error("Hiba a globális számláló frissítésekor:", err);
+    }
 }
