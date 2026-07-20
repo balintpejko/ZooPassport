@@ -328,3 +328,11 @@ function updateGlobalProgressDOM() {
 }
 
 updateGlobalProgressDOM();
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then((reg) => console.log('Service Worker sikeresen regisztrálva! Működési hatókör:', reg.scope))
+            .catch((err) => console.error('Service Worker regisztrációs hiba:', err));
+    });
+}
