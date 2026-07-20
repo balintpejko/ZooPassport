@@ -10,7 +10,7 @@ const zooData = {
                     items: [
                         { id: 'sv_1', type: 'checkbox', label: 'Láttam a jegesmedvét úszni' },
                         { id: 'sv_2', type: 'checkbox', label: 'Megnéztem a kaliforniai oroszlánfókák tréningjét' },
-                        { id: 'sv_3', type: 'photo', label: 'Fotó a Humboldt-pingvinekről', placeholder: 'Kattints kép feltöltéséhez' },
+                        { id: 'sv_3', type: 'photo', label: 'Fotó a Humboldt-pingvinekről', placeholder: 'Kattints kép feltöltéséhez', validKeywords: ['penguin', 'humboldt penguin', 'bird', 'flightless bird'] },
                         { id: 'sv_4', type: 'text', label: 'Milyen volt a hangulat a Sarkvidéken?', placeholder: 'Írd le az élményed ide...' }
                     ]
                 },
@@ -22,7 +22,7 @@ const zooData = {
                     items: [
                         { id: 'zp_1', type: 'checkbox', label: 'Átsétáltam az Óceanárium üvegalagútján' },
                         { id: 'zp_2', type: 'checkbox', label: 'Megtaláltam a komodói varánuszt' },
-                        { id: 'zp_3', type: 'photo', label: 'Fotó a lenyűgöző esőerdei vízesésről', placeholder: 'Tölts fel egy hangulatos képet' },
+                        { id: 'zp_3', type: 'photo', label: 'Fotó a lenyűgöző esőerdei vízesésről', placeholder: 'Tölts fel egy hangulatos képet', validKeywords: ['waterfall', 'rainforest', 'landscape'] },
                         { id: 'zp_4', type: 'checkbox', label: 'Láttam az indonéz szőnyegmintás pitont' }
                     ]
                 },
@@ -35,7 +35,7 @@ const zooData = {
                         { id: 'to_1', type: 'checkbox', label: 'Megcsodáltam a hatalmas afrikai elefántokat' },
                         { id: 'to_2', type: 'checkbox', label: 'Láttam a ritka fehér oroszlánokat' },
                         { id: 'to_3', type: 'checkbox', label: 'Megvártam, amíg a szurikáták őrséget állnak' },
-                        { id: 'to_4', type: 'photo', label: 'Fotó a flamingócsapatról', placeholder: 'Fénykép a rózsaszín madarakról' },
+                        { id: 'to_4', type: 'photo', label: 'Fotó a flamingócsapatról', placeholder: 'Fénykép a rózsaszín madarakról', validKeywords: ['flamingo', 'pink bird', 'water bird'] },
                         { id: 'to_5', type: 'text', label: 'Mit csináltak épp a zsiráfok?', placeholder: 'Legeltek, szaladtak v. aludtak?' }
                     ]
                 },
@@ -47,7 +47,7 @@ const zooData = {
                     items: [
                         { id: 'aa_1', type: 'checkbox', label: 'Láttam a vörös óriáskengurukat ugrálni' },
                         { id: 'aa_2', type: 'checkbox', label: 'Megfigyeltem a rejtőzködő jaguárt' },
-                        { id: 'aa_3', type: 'photo', label: 'Fotó az alpakákról vagy a lámatanyáról', placeholder: 'Vicces fotó az alpakákról' }
+                        { id: 'aa_3', type: 'photo', label: 'Fotó az alpakákról vagy a lámatanyáról', placeholder: 'Vicces fotó az alpakákról', validKeywords: ['alpaca', 'llama', 'south american animal'] }
                     ]
                 },
                 {
@@ -63,6 +63,20 @@ const zooData = {
                 }
             ]
         };
+
+let globalMobileNetModel = null;
+
+async function initAIModel() {
+    try {
+        if (typeof mobilenet !== 'undefined') {
+            globalMobileNetModel = await mobilenet.load();
+            console.log("MobileNet AI modell sikeresen betöltve a memóriába!");
+        }
+    } catch (err) {
+        console.warn("Az AI modell háttérbeli betöltése meghiúsult:", err);
+    }
+}
+initAIModel();
 
 let userProgress = JSON.parse(localStorage.getItem('zoo_passport_progress')) || {};
 let activeRegionId = zooData.regions[0].id;
@@ -226,10 +240,8 @@ function updateProgress(itemId, value) {
 
     updateGlobalProgressDOM();
 
-    // --- FELHŐBE MENTÉS & XP KISZÁMÍTÁSA ---
     let totalXp = 0;
     
-    // Pontszámítás: checkbox/szöveg = 50 XP, fotó = 150 XP
     zooData.regions.forEach(r => {
         r.items.forEach(item => {
             const val = userProgress[item.id];
@@ -239,12 +251,13 @@ function updateProgress(itemId, value) {
         });
     });
 
-    // Badge szint meghatározása XP alapján
     let badge = 'Bronze';
-    if (totalXp >= 300) badge = 'Silver';
-    if (totalXp >= 600) badge = 'Gold';
+    if (totalXp >= 3000) badge = 'Silver';
+    if (totalXp >= 8000) badge = 'Gold';
+    if (totalXp >= 14000) badge = 'Platinum';
+    if (totalXp >= 22000) badge = 'Emerald';
+    if (totalXp >= 30000) badge = 'Diamond';
 
-    // Mentés a Firebase-be
     saveUserDataToCloud(zooData.id, totalXp, badge);
 }
 async function handlePhotoUpload(itemId, input) {
@@ -267,7 +280,8 @@ async function handlePhotoUpload(itemId, input) {
 
             originalImg.onload = async function() {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 500; 
+                // Szuper-tömörítés: Max 350px szélesség (mobilra tökéletes, és alig foglal helyet)
+                const MAX_WIDTH = 350; 
                 let width = originalImg.width;
                 let height = originalImg.height;
 
@@ -285,20 +299,21 @@ async function handlePhotoUpload(itemId, input) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(originalImg, 0, 0, width, height);
 
-                const compressedBase64 = canvas.toDataURL('image/webp', 0.75);
+                // WebP formátum 0.65-ös minőséggel (pehelykönnyű Base64 méret!)
+                const compressedBase64 = canvas.toDataURL('image/webp', 0.65);
 
                 const imgElement = new Image();
                 imgElement.src = compressedBase64;
 
                 imgElement.onload = async function() {
                     try {
-                        const model = await mobilenet.load();
+                        const model = globalMobileNetModel || await mobilenet.load();
                         const predictions = await model.classify(imgElement);
                         
                         const isValid = predictions.some(prediction => 
                             validKeywords.some(keyword => 
                                 prediction.className.toLowerCase().includes(keyword.toLowerCase())
-                            ) && prediction.probability > 0.5
+                            ) && prediction.probability > 0.4
                         );
 
                         if (isValid || validKeywords.length === 0) {
@@ -358,7 +373,6 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// Betöltés a felhőből (ha van mentett adat)
 window.loadUserDataFromCloud = async function(uid) {
     if (!window.db || !window.getDoc || !window.doc) return;
     
@@ -368,7 +382,6 @@ window.loadUserDataFromCloud = async function(uid) {
 
         if (docSnap.exists()) {
             console.log("Felhőbeli adatok megtalálva:", docSnap.data());
-            // Később ide köthetjük a felhőbeli haladás szinkronizálását!
         } else {
             console.log("Új felhasználó, még nincsenek felhőbeli adatai.");
         }
@@ -377,7 +390,6 @@ window.loadUserDataFromCloud = async function(uid) {
     }
 };
 
-// 1. Felhasználói adatok (XP, Badge-ek) mentése a felhőbe
 async function saveUserDataToCloud(zooId, newXp, badgeLevel) {
     if (!window.currentUserUid || !window.db) {
         console.warn("Firebase még nem áll készen a mentésre.");
@@ -400,7 +412,6 @@ async function saveUserDataToCloud(zooId, newXp, badgeLevel) {
     }
 }
 
-// 2. Globális népszerűségi számláló
 async function registerGlobalVisit(zooId) {
     if (!window.db) return;
 

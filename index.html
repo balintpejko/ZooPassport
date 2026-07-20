@@ -173,12 +173,10 @@
         measurementId: "G-P3ER22DEWN"
     };
 
-    // Inicializálás
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Globálissá tesszük a modulokat
     window.db = db;
     window.doc = doc;
     window.setDoc = setDoc;
@@ -186,16 +184,12 @@
     window.updateDoc = updateDoc;
     window.increment = increment;
 
-    // Névtelen Bejelentkezés
-    signInAnonymously(auth)
-        .then(() => console.log("Firebase Auth elindítva..."))
-        .catch((error) => console.error("Firebase Auth Hiba:", error));
+    signInAnonymously(auth).catch((error) => console.error("Firebase Auth Hiba:", error));
 
     onAuthStateChanged(auth, (user) => {
         if (user) {
             console.log("Sikeres névtelen belépés! User UID:", user.uid);
             window.currentUserUid = user.uid;
-            
             if (typeof window.loadUserDataFromCloud === 'function') {
                 window.loadUserDataFromCloud(user.uid);
             }
